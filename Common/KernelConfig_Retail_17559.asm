@@ -11,6 +11,10 @@
 .include "Xam_Retail_17559.asm"
 .endif
 
+# i don't really get how GAME_SAVE_EXPLOIT is supposed to be used, i'll just duplicate this here
+.set XamLoaderLaunchTitle,				0x816a1820	# 420
+.set XLaunchNewImage,					XamLoaderLaunchTitle
+
 .set MiAllocateMappedMemory,			0x80080D28
 .set MiFreeMappedMemory,				0x800817D0
 

@@ -2,6 +2,10 @@
 ###########################################################
 # Rock Band Blitz function addresses.
 
+# XTL functions:
+.set XPhysicalAlloc,                        0x82193310
+.set XSetThreadProcessor,                   0x82193068
+
 
 ###########################################################
 # Rock Band Blitz data addresses.
