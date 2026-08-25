@@ -1,0 +1,53 @@
+name: Build Xbox360BadUpdate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - v1.3
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Verify build tools
+        shell: cmd
+        run: |
+          if not exist "Tools\XePatcher\XePatcher.exe" (
+            echo ERROR: XePatcher.exe not found
+            exit /b 1
+          )
+
+          if not exist "Tools\ObjLink\ObjLink.exe" (
+            echo ERROR: ObjLink.exe not found
+            exit /b 1
+          )
+
+          echo XePatcher found.
+          echo ObjLink found.
+
+      - name: Build exploit
+        shell: cmd
+        run: |
+          call build_exploit.bat THAW RETAIL_BUILD
+          if errorlevel 1 exit /b %errorlevel%
+
+      - name: Show build output
+        shell: pwsh
+        run: |
+          if (Test-Path "bin") {
+            Get-ChildItem -Recurse "bin" | Select-Object FullName, Length
+          } else {
+            Write-Error "bin folder was not created."
+          }
+
+      - name: Upload compiled output
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xbox360BadUpdate-v1.3-build
+          path: bin/
+          if-no-files-found: error
