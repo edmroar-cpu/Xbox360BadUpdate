@@ -1,4 +1,4 @@
-name: Build Xbox360BadUpdate
+name: Build Xbox360BadUpdate v1.3
 
 on:
   workflow_dispatch:
@@ -8,46 +8,123 @@ on:
 
 jobs:
   build:
+    name: Build Exploit
     runs-on: windows-latest
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          ref: v1.3
 
       - name: Verify build tools
         shell: cmd
         run: |
+          echo Checking XePatcher...
           if not exist "Tools\XePatcher\XePatcher.exe" (
-            echo ERROR: XePatcher.exe not found
+            echo ERROR: Tools\XePatcher\XePatcher.exe not found
             exit /b 1
           )
 
+          echo Checking ObjLink...
           if not exist "Tools\ObjLink\ObjLink.exe" (
-            echo ERROR: ObjLink.exe not found
+            echo ERROR: Tools\ObjLink\ObjLink.exe not found
             exit /b 1
           )
 
-          echo XePatcher found.
-          echo ObjLink found.
+          echo.
+          echo ==============================
+          echo BUILD TOOLS FOUND
+          echo ==============================
+          echo XePatcher:
+          dir "Tools\XePatcher"
+          echo.
+          echo ObjLink:
+          dir "Tools\ObjLink"
 
       - name: Build exploit
         shell: cmd
         run: |
-          call build_exploit.bat THAW RETAIL_BUILD
-          if errorlevel 1 exit /b %errorlevel%
+          echo ==============================
+          echo BUILDING ROCK BAND BLITZ
+          echo ==============================
+          call build_exploit.bat RBB RETAIL_BUILD
+
+          if errorlevel 1 (
+            echo.
+            echo ==============================
+            echo BUILD FAILED
+            echo ==============================
+            exit /b %errorlevel%
+          )
+
+          echo.
+          echo ==============================
+          echo BUILD SCRIPT FINISHED
+          echo ==============================
 
       - name: Show build output
-        shell: pwsh
+        shell: cmd
         run: |
-          if (Test-Path "bin") {
-            Get-ChildItem -Recurse "bin" | Select-Object FullName, Length
-          } else {
-            Write-Error "bin folder was not created."
-          }
+          echo Checking output directory...
+
+          if not exist "bin" (
+            echo ERROR: bin folder was not created.
+            echo.
+            echo Current repository contents:
+            dir
+            exit /b 1
+          )
+
+          echo.
+          echo ==============================
+          echo COMPILED FILES
+          echo ==============================
+          dir /s /b "bin"
+
+      - name: Verify compiled payloads
+        shell: cmd
+        run: |
+          set "OUT=bin\RETAIL_BUILD\RockBandBlitz"
+
+          echo Checking:
+          echo %OUT%
+          echo.
+
+          if not exist "%OUT%" (
+            echo ERROR: Expected output directory not found.
+            exit /b 1
+          )
+
+          if not exist "%OUT%\BadUpdateExploit-Data.bin" (
+            echo ERROR: BadUpdateExploit-Data.bin missing.
+            exit /b 1
+          )
+
+          if not exist "%OUT%\BadUpdateExploit-2ndStage.bin" (
+            echo ERROR: BadUpdateExploit-2ndStage.bin missing.
+            exit /b 1
+          )
+
+          if not exist "%OUT%\BadUpdateExploit-3rdStage.bin" (
+            echo ERROR: BadUpdateExploit-3rdStage.bin missing.
+            exit /b 1
+          )
+
+          if not exist "%OUT%\BadUpdateExploit-4thStage.bin" (
+            echo ERROR: BadUpdateExploit-4thStage.bin missing.
+            exit /b 1
+          )
+
+          echo.
+          echo ==============================
+          echo ALL EXPECTED FILES FOUND
+          echo ==============================
+          dir "%OUT%"
 
       - name: Upload compiled output
         uses: actions/upload-artifact@v4
         with:
-          name: Xbox360BadUpdate-v1.3-build
-          path: bin/
+          name: Xbox360BadUpdate-v1.3-RBB
+          path: bin/RETAIL_BUILD/RockBandBlitz/
           if-no-files-found: error
