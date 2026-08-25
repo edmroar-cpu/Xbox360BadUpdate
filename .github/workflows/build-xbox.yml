@@ -17,30 +17,38 @@ jobs:
         with:
           ref: v1.3
 
+      - name: Setup .NET 6 Runtime
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '6.0.x'
+
       - name: Verify build tools
         shell: cmd
         run: |
-          echo Checking XePatcher...
+          echo ==============================
+          echo CHECKING BUILD TOOLS
+          echo ==============================
+
           if not exist "Tools\XePatcher\XePatcher.exe" (
-            echo ERROR: Tools\XePatcher\XePatcher.exe not found
+            echo ERROR: XePatcher.exe not found
             exit /b 1
           )
 
-          echo Checking ObjLink...
           if not exist "Tools\ObjLink\ObjLink.exe" (
-            echo ERROR: Tools\ObjLink\ObjLink.exe not found
+            echo ERROR: ObjLink.exe not found
             exit /b 1
           )
 
-          echo.
+          echo XePatcher.exe FOUND
+          echo ObjLink.exe FOUND
+
+      - name: Verify .NET
+        shell: cmd
+        run: |
           echo ==============================
-          echo BUILD TOOLS FOUND
+          echo CHECKING .NET
           echo ==============================
-          echo XePatcher:
-          dir "Tools\XePatcher"
-          echo.
-          echo ObjLink:
-          dir "Tools\ObjLink"
+          dotnet --list-runtimes
 
       - name: Build exploit
         shell: cmd
@@ -48,6 +56,7 @@ jobs:
           echo ==============================
           echo BUILDING ROCK BAND BLITZ
           echo ==============================
+
           call build_exploit.bat RBB RETAIL_BUILD
 
           if errorlevel 1 (
@@ -66,33 +75,28 @@ jobs:
       - name: Show build output
         shell: cmd
         run: |
-          echo Checking output directory...
+          echo ==============================
+          echo BUILD OUTPUT
+          echo ==============================
 
           if not exist "bin" (
             echo ERROR: bin folder was not created.
-            echo.
-            echo Current repository contents:
-            dir
             exit /b 1
           )
 
-          echo.
-          echo ==============================
-          echo COMPILED FILES
-          echo ==============================
           dir /s /b "bin"
 
-      - name: Verify compiled payloads
+      - name: Verify compiled files
         shell: cmd
         run: |
           set "OUT=bin\RETAIL_BUILD\RockBandBlitz"
 
-          echo Checking:
-          echo %OUT%
-          echo.
+          echo ==============================
+          echo VERIFYING COMPILED FILES
+          echo ==============================
 
           if not exist "%OUT%" (
-            echo ERROR: Expected output directory not found.
+            echo ERROR: Output directory not found.
             exit /b 1
           )
 
@@ -118,8 +122,9 @@ jobs:
 
           echo.
           echo ==============================
-          echo ALL EXPECTED FILES FOUND
+          echo ALL COMPILED FILES FOUND
           echo ==============================
+
           dir "%OUT%"
 
       - name: Upload compiled output
